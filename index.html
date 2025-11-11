@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,9 +11,22 @@
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: url('Background.png') no-repeat center center fixed;
+            background-size: cover;
+            backdrop-filter: blur(4px);
+            color: white;
+        }
+
+        /* Optionnel : ajouter une couche semi-transparente pour mieux lire le texte */
+        #app {
+            background: rgba(0, 0, 0, 0.5);
+            min-height: 100vh;
+            padding-bottom: 50px;
         }
     </style>
+
 </head>
+
 <body class="bg-gray-100">
     <div id="app">Chargement...</div>
 
@@ -44,7 +58,7 @@
             const immatFromUrl = getUrlParameter('immat');
             if (immatFromUrl) {
                 const immatUpper = immatFromUrl.toUpperCase();
-                
+
                 // Si le véhicule existe, l'ouvrir
                 if (vehicles[immatUpper]) {
                     currentVehicle = immatUpper;
@@ -133,7 +147,7 @@
             };
 
             vehicles[currentVehicle].interventions.unshift(intervention);
-            
+
             if (km) {
                 vehicles[currentVehicle].kilometrage = km;
             }
@@ -146,10 +160,10 @@
         // Supprimer une intervention
         function deleteIntervention(id) {
             if (!confirm('Supprimer cette intervention ?')) return;
-            
-            vehicles[currentVehicle].interventions = 
+
+            vehicles[currentVehicle].interventions =
                 vehicles[currentVehicle].interventions.filter(i => i.id !== id);
-            
+
             saveData();
             render();
         }
@@ -157,7 +171,7 @@
         // Supprimer un véhicule
         function deleteVehicle(immat) {
             if (!confirm(`Supprimer définitivement le véhicule ${immat} et tout son historique ?`)) return;
-            
+
             delete vehicles[immat];
             saveData();
             render();
@@ -166,9 +180,9 @@
         // Exporter en CSV - Version ultra simple
         function exportToExcel() {
             const vehicle = vehicles[currentVehicle];
-            
+
             let texte = "Date;Type;Description;Pieces;Cout;Kilometrage;Mecanicien;Commentaire\n";
-            
+
             vehicle.interventions.forEach(inter => {
                 texte += `${inter.date || ''};`;
                 texte += `${inter.type || ''};`;
@@ -192,12 +206,12 @@
         // Exporter en TXT - Version ultra simple
         function exportToPDF() {
             const vehicle = vehicles[currentVehicle];
-            
+
             let texte = `HISTORIQUE - ${vehicle.immatriculation}\n`;
             texte += `${vehicle.marque} ${vehicle.modele} ${vehicle.annee || ''}\n`;
             if (vehicle.kilometrage) texte += `Kilometrage: ${vehicle.kilometrage} km\n`;
             texte += `\n${'='.repeat(50)}\n\n`;
-            
+
             vehicle.interventions.forEach((inter, i) => {
                 texte += `${i + 1}. ${inter.date || 'Pas de date'} - ${inter.type}\n`;
                 texte += `   ${inter.description}\n`;
@@ -208,7 +222,7 @@
                 if (inter.commentaire) texte += `   Note: ${inter.commentaire}\n`;
                 texte += '\n';
             });
-            
+
             const element = document.createElement('a');
             element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(texte));
             element.setAttribute('download', vehicle.immatriculation + '.txt');
@@ -226,14 +240,14 @@
                 v.marque.toLowerCase().includes(search) ||
                 v.modele.toLowerCase().includes(search)
             );
-            
+
             renderVehiclesList(vehiclesList);
         }
 
         // Render liste des véhicules
         function renderVehiclesList(filteredVehicles) {
             const container = document.getElementById('vehiclesList');
-            
+
             if (filteredVehicles.length === 0) {
                 container.innerHTML = `
                     <div class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
@@ -283,7 +297,7 @@
             // Vue liste des véhicules
             if (!currentVehicle) {
                 const vehiclesList = Object.values(vehicles);
-                
+
                 app.innerHTML = `
                     <div class="min-h-screen">
                         <div class="bg-blue-600 text-white p-4 shadow-lg">
@@ -409,7 +423,7 @@
             } else {
                 // Formulaire d'ajout d'intervention
                 const today = new Date().toISOString().split('T')[0];
-                
+
                 app.innerHTML = `
                     <div class="min-h-screen">
                         <div class="bg-blue-600 text-white p-4 shadow-lg">
@@ -496,4 +510,5 @@
         loadData();
     </script>
 </body>
+
 </html>
