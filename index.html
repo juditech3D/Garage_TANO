@@ -9,43 +9,58 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
    <style>
-  /* ---- Glass global (cartes, panneaux, etc.) ---- */
+  /* ---------- Fond d’écran ---------- */
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: url('Background.png') no-repeat center center fixed;
+    background-size: cover;              /* desktop : plein écran */
+    background-position: center top;
+    color: white;
+    min-height: 100vh;
+  }
+  /* Assombrissement + léger flou pour la lisibilité du contenu */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(2px);
+    z-index: -1;
+  }
+  /* Conteneur principal */
+  #app {
+    background: rgba(0,0,0,0.35);
+    min-height: 100vh;
+    padding-bottom: 50px;
+  }
+
+  /* ---------- Effet verre dépoli (glass) ---------- */
   .bg-white {
-    /* remplace le blanc plein par un verre dépoli */
-    background-color: rgba(255, 255, 255, 0.14) !important;
+    background-color: rgba(255,255,255,0.14) !important;
     -webkit-backdrop-filter: blur(10px) saturate(120%);
     backdrop-filter: blur(10px) saturate(120%);
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    border: 1px solid rgba(255,255,255,0.22);
     box-shadow: 0 8px 24px rgba(0,0,0,0.25);
   }
-
-  /* variantes très claires (ex: hover:bg-red-50) => garder léger
-     pour éviter un “bloc” opaque sur le fond */
-  .hover\:bg-red-50:hover { 
-    background-color: rgba(255, 0, 0, 0.06) !important; 
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
-  }
-
-  /* Entêtes bleues : un peu de glass aussi */
   .bg-blue-600 {
-    background-color: rgba(37, 99, 235, 0.80) !important;
+    background-color: rgba(37,99,235,0.80) !important;
     -webkit-backdrop-filter: blur(8px) saturate(120%);
     backdrop-filter: blur(8px) saturate(120%);
     border-bottom: 1px solid rgba(255,255,255,0.18);
   }
-
-  /* Boutons principaux : conserver lisibilité/contraste */
   .bg-green-600, .bg-green-700, .bg-red-600 {
     filter: saturate(115%);
     box-shadow: 0 6px 16px rgba(0,0,0,0.25);
   }
 
-  /* ✅ Inputs lisibles (noir sur blanc) – reste inchangé */
+  /* ---------- Inputs lisibles ---------- */
   input, textarea, select {
     color: #111 !important;
     background-color: #fff !important;
-    border: 1px solid #d1d5db !important; /* #ccc tailwind-like */
+    border: 1px solid #d1d5db !important;
   }
   input::placeholder, textarea::placeholder { color: #666 !important; }
   input:focus, textarea:focus, select:focus {
@@ -54,8 +69,16 @@
     border-color: #3b82f6 !important;
   }
 
-  /* 📴 Mobile : conserver le fond + glass lisible */
+  /* ---------- Mobile / tablette ---------- */
   @media (max-width: 768px) {
+    body {
+      background: url('Background.png') no-repeat center center fixed;
+      background-size: contain;          /* mobile : ne pas couper l’image */
+      background-color: #000;            /* bandes propres autour si besoin */
+    }
+    #app {
+      background: rgba(0,0,0,0.6);
+    }
     .bg-white {
       background-color: rgba(255,255,255,0.18) !important;
       -webkit-backdrop-filter: blur(12px) saturate(120%);
@@ -63,6 +86,7 @@
     }
   }
 </style>
+
 
 
 </head>
