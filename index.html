@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garage NFC - Suivi des Travaux</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="app">Chargement...</div>
+
+    <script>
+        // Fonction pour récupérer les paramètres URL
+        function getUrlParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+
+        // Base de données locale
+        let vehicles = {};
+        let currentVehicle = null;
+        let showAddForm = false;
+
+        // Charger les données depuis localStorage
+        function loadData() {
+            try {
+                const stored = localStorage.getItem('garage_vehicles');
+                if (stored) {
+                    vehicles = JSON.parse(stored);
+                }
+            } catch (error) {
+                console.log('Première utilisation');
+                vehicles = {};
+            }
+
+            // Vérifier si une immatriculation est dans l'URL
+            const immatFromUrl = getUrlParameter('immat');
+            if (immatFromUrl) {
+                const immatUpper = immatFromUrl.toUpperCase();
+                
+                // Si le véhicule existe, l'ouvrir
+                if (vehicles[immatUpper]) {
+                    currentVehicle = immatUpper;
+                } else {
+                    // Sinon, proposer de le créer
+                    if (confirm(`Le véhicule ${immatUpper} n'existe pas encore.\n\nVoulez-vous le créer maintenant ?`)) {
+                        // On va le créer après le render
+                        setTimeout(() => {
+                            const input = document.getElementById('newVehicleImmat');
+                            if (input) {
+                                input.value = immatUpper;
+                                input.focus();
+                            }
+                        }, 100);
+                    }
+                }
+            }
+
+            render();
+        }
+
+        // Sauvegarder les données
+        function saveData() {
+            try {
+                localStorage.setItem('garage_vehicles', JSON.stringify(vehicles));
+            } catch (error) {
+                console.error('Erreur de sauvegarde:', error);
+                alert('Erreur lors de la sauvegarde');
+            }
+        }
+
+        // Ajouter un véhicule
+        function addVehicle() {
+            const immat = document.getElementById('newVehicleImmat').value.toUpperCase().trim();
+            const marque = document.getElementById('newVehicleMarque').value.trim();
+            const modele = document.getElementById('newVehicleModele').value.trim();
+            const annee = document.getElementById('newVehicleAnnee').value.trim();
+            const km = document.getElementById('newVehicleKm').value.trim();
+
+            if (!immat) {
+                alert('Immatriculation obligatoire');
+                return;
+            }
+
+            vehicles[immat] = {
+                immatriculation: immat,
+                marque: marque,
+                modele: modele,
+                annee: annee,
+                kilometrage: km,
+                interventions: []
+            };
+
+            saveData();
+            currentVehicle = immat;
+            render();
+        }
+
+        // Ajouter une intervention
+        function addIntervention() {
+            const date = document.getElementById('interventionDate').value;
+            const type = document.getElementById('interventionType').value;
+            const description = document.getElementById('interventionDesc').value;
+            const pieces = document.getElementById('interventionPieces').value;
+            const cout = document.getElementById('interventionCout').value;
+            const km = document.getElementById('interventionKm').value;
+            const mecanicien = document.getElementById('interventionMecanicien').value;
+            const commentaire = document.getElementById('interventionCommentaire').value;
+
+            if (!type || !description) {
+                alert('Type et description obligatoires');
+                return;
+            }
+
+            const intervention = {
+                id: Date.now(),
+                date: date,
+                type: type,
+                description: description,
+                pieces: pieces,
+                cout: cout,
+                kilometrage: km,
+                mecanicien: mecanicien,
+                commentaire: commentaire,
+                dateAjout: new Date().toISOString()
+            };
+
+            vehicles[currentVehicle].interventions.unshift(intervention);
+            
+            if (km) {
+                vehicles[currentVehicle].kilometrage = km;
+            }
+
+            saveData();
+            showAddForm = false;
+            render();
+        }
+
+        // Supprimer une intervention
+        function deleteIntervention(id) {
+            if (!confirm('Supprimer cette intervention ?')) return;
+            
+            vehicles[currentVehicle].interventions = 
+                vehicles[currentVehicle].interventions.filter(i => i.id !== id);
+            
+            saveData();
+            render();
+        }
+
+        // Supprimer un véhicule
+        function deleteVehicle(immat) {
+            if (!confirm(`Supprimer définitivement le véhicule ${immat} et tout son historique ?`)) return;
+            
+            delete vehicles[immat];
+            saveData();
+            render();
+        }
+
+        // Exporter en CSV - Version ultra simple
+        function exportToExcel() {
+            const vehicle = vehicles[currentVehicle];
+            
+            let texte = "Date;Type;Description;Pieces;Cout;Kilometrage;Mecanicien;Commentaire\n";
+            
+            vehicle.interventions.forEach(inter => {
+                texte += `${inter.date || ''};`;
+                texte += `${inter.type || ''};`;
+                texte += `${(inter.description || '').replace(/;/g, ',')};`;
+                texte += `${(inter.pieces || '').replace(/;/g, ',')};`;
+                texte += `${inter.cout || ''};`;
+                texte += `${inter.kilometrage || ''};`;
+                texte += `${inter.mecanicien || ''};`;
+                texte += `${(inter.commentaire || '').replace(/;/g, ',')}\n`;
+            });
+
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(texte));
+            element.setAttribute('download', vehicle.immatriculation + '.csv');
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        }
+
+        // Exporter en TXT - Version ultra simple
+        function exportToPDF() {
+            const vehicle = vehicles[currentVehicle];
+            
+            let texte = `HISTORIQUE - ${vehicle.immatriculation}\n`;
+            texte += `${vehicle.marque} ${vehicle.modele} ${vehicle.annee || ''}\n`;
+            if (vehicle.kilometrage) texte += `Kilometrage: ${vehicle.kilometrage} km\n`;
+            texte += `\n${'='.repeat(50)}\n\n`;
+            
+            vehicle.interventions.forEach((inter, i) => {
+                texte += `${i + 1}. ${inter.date || 'Pas de date'} - ${inter.type}\n`;
+                texte += `   ${inter.description}\n`;
+                if (inter.pieces) texte += `   Pieces: ${inter.pieces}\n`;
+                if (inter.cout) texte += `   Cout: ${inter.cout} euros\n`;
+                if (inter.kilometrage) texte += `   Km: ${inter.kilometrage}\n`;
+                if (inter.mecanicien) texte += `   Mecano: ${inter.mecanicien}\n`;
+                if (inter.commentaire) texte += `   Note: ${inter.commentaire}\n`;
+                texte += '\n';
+            });
+            
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(texte));
+            element.setAttribute('download', vehicle.immatriculation + '.txt');
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        }
+
+        // Filtrer les véhicules
+        function filterVehicles() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const vehiclesList = Object.values(vehicles).filter(v =>
+                v.immatriculation.toLowerCase().includes(search) ||
+                v.marque.toLowerCase().includes(search) ||
+                v.modele.toLowerCase().includes(search)
+            );
+            
+            renderVehiclesList(vehiclesList);
+        }
+
+        // Render liste des véhicules
+        function renderVehiclesList(filteredVehicles) {
+            const container = document.getElementById('vehiclesList');
+            
+            if (filteredVehicles.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+                        <svg class="mx-auto mb-3 opacity-50" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M5 17h14v-5.5L16.5 7H7.5L5 11.5V17z M5 17v1a1 1 0 001 1h1a1 1 0 001-1v-1M5 17h14m0 0v1a1 1 0 001 1h1a1 1 0 001-1v-1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="8" cy="17" r="2" stroke-width="2"/>
+                            <circle cx="16" cy="17" r="2" stroke-width="2"/>
+                        </svg>
+                        <p>Aucun véhicule trouvé</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filteredVehicles.map(v => `
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 cursor-pointer" onclick="currentVehicle='${v.immatriculation}'; render();">
+                            <div class="flex items-center gap-2">
+                                <svg width="24" height="24" class="text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path d="M5 17h14v-5.5L16.5 7H7.5L5 11.5V17z M5 17v1a1 1 0 001 1h1a1 1 0 001-1v-1M5 17h14m0 0v1a1 1 0 001 1h1a1 1 0 001-1v-1" stroke-width="2"/>
+                                    <circle cx="8" cy="17" r="2" stroke-width="2"/>
+                                    <circle cx="16" cy="17" r="2" stroke-width="2"/>
+                                </svg>
+                                <span class="text-xl font-bold">${v.immatriculation}</span>
+                            </div>
+                            <p class="text-gray-600">${v.marque} ${v.modele} ${v.annee ? `(${v.annee})` : ''}</p>
+                            ${v.kilometrage ? `<p class="text-sm text-gray-500">${v.kilometrage} km</p>` : ''}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm font-semibold">
+                                ${v.interventions.length}
+                            </div>
+                            <button onclick="deleteVehicle('${v.immatriculation}')" class="text-red-500 hover:bg-red-50 px-2 py-1 rounded text-sm">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render principal
+        function render() {
+            const app = document.getElementById('app');
+
+            // Vue liste des véhicules
+            if (!currentVehicle) {
+                const vehiclesList = Object.values(vehicles);
+                
+                app.innerHTML = `
+                    <div class="min-h-screen">
+                        <div class="bg-blue-600 text-white p-4 shadow-lg">
+                            <h1 class="text-2xl font-bold flex items-center gap-2">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Garage NFC
+                            </h1>
+                        </div>
+
+                        <div class="p-4">
+                            <div class="bg-white rounded-lg shadow p-4 mb-4">
+                                <input
+                                    type="text"
+                                    id="searchInput"
+                                    placeholder="🔍 Rechercher un véhicule..."
+                                    class="w-full px-4 py-2 border rounded-lg"
+                                    oninput="filterVehicles()"
+                                />
+                            </div>
+
+                            <div class="bg-white rounded-lg shadow p-4 mb-4">
+                                <h2 class="text-lg font-bold mb-3">➕ Nouveau Véhicule</h2>
+                                <div class="space-y-2">
+                                    <input type="text" id="newVehicleImmat" placeholder="Immatriculation *" class="w-full px-3 py-2 border rounded text-lg font-bold uppercase">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <input type="text" id="newVehicleMarque" placeholder="Marque" class="px-3 py-2 border rounded">
+                                        <input type="text" id="newVehicleModele" placeholder="Modèle" class="px-3 py-2 border rounded">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <input type="number" id="newVehicleAnnee" placeholder="Année" class="px-3 py-2 border rounded">
+                                        <input type="number" id="newVehicleKm" placeholder="Kilométrage" class="px-3 py-2 border rounded">
+                                    </div>
+                                    <button onclick="addVehicle()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
+                                        Ajouter le Véhicule
+                                    </button>
+                                </div>
+                            </div>
+
+                            <h2 class="text-xl font-bold mb-3">🚗 Véhicules (${vehiclesList.length})</h2>
+                            <div id="vehiclesList" class="space-y-3"></div>
+                        </div>
+                    </div>
+                `;
+
+                renderVehiclesList(vehiclesList);
+                return;
+            }
+
+            // Vue détail véhicule
+            const vehicle = vehicles[currentVehicle];
+
+            if (!showAddForm) {
+                app.innerHTML = `
+                    <div class="min-h-screen">
+                        <div class="bg-blue-600 text-white p-4 shadow-lg">
+                            <button onclick="currentVehicle=null; render();" class="flex items-center gap-2 mb-2 hover:bg-blue-700 px-3 py-2 rounded">
+                                ← Retour
+                            </button>
+                            <div>
+                                <h1 class="text-2xl font-bold">${vehicle.immatriculation}</h1>
+                                <p class="text-blue-100">${vehicle.marque} ${vehicle.modele} ${vehicle.annee ? `(${vehicle.annee})` : ''}</p>
+                                ${vehicle.kilometrage ? `<p class="text-sm text-blue-100">📍 ${vehicle.kilometrage} km</p>` : ''}
+                            </div>
+                        </div>
+
+                        <div class="p-4">
+                            <button onclick="showAddForm=true; render();" class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold mb-4 hover:bg-green-700 flex items-center justify-center gap-2">
+                                <span class="text-xl">➕</span> Nouvelle Intervention
+                            </button>
+
+                            <div class="grid grid-cols-2 gap-3 mb-4">
+                                <button onclick="exportToPDF()" class="bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 flex items-center justify-center gap-2">
+                                    📄 Export TXT
+                                </button>
+                                <button onclick="exportToExcel()" class="bg-green-700 text-white py-2 rounded-lg font-semibold hover:bg-green-800 flex items-center justify-center gap-2">
+                                    📊 Export CSV
+                                </button>
+                            </div>
+
+                            <h2 class="text-xl font-bold mb-3">📋 Historique (${vehicle.interventions.length})</h2>
+
+                            ${vehicle.interventions.length === 0 ? `
+                                <div class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+                                    <svg class="mx-auto mb-3 opacity-50" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke-width="2"/>
+                                    </svg>
+                                    <p>Aucune intervention enregistrée</p>
+                                </div>
+                            ` : `
+                                <div class="space-y-3">
+                                    ${vehicle.interventions.map(inter => `
+                                    <div class="bg-white rounded-lg shadow p-4">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div class="flex-1">
+                                                <div class="text-sm text-gray-600 mb-1">
+                                                    📅 ${inter.date || 'Date non specifiee'}
+                                                </div>
+                                                <h3 class="font-bold text-lg text-blue-600">${inter.type}</h3>
+                                            </div>
+                                            <button onclick="deleteIntervention(${inter.id})" class="text-red-500 hover:bg-red-50 px-2 py-1 rounded text-sm font-bold">✕</button>
+                                        </div>
+                                        <p class="text-gray-700 mb-2">${inter.description}</p>
+                                        ${inter.pieces ? `<div class="text-sm text-gray-600 mb-1"><span class="font-semibold">🔧 Pièces:</span> ${inter.pieces}</div>` : ''}
+                                        ${inter.commentaire ? `
+                                            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 mt-2 mb-2 rounded">
+                                                <p class="text-sm text-gray-700"><span class="font-semibold">💬 Commentaire:</span> ${inter.commentaire}</p>
+                                            </div>
+                                        ` : ''}
+                                        <div class="flex flex-wrap gap-3 mt-2 text-sm">
+                                            ${inter.cout ? `<div class="text-green-600 font-semibold">💰 ${inter.cout} €</div>` : ''}
+                                            ${inter.kilometrage ? `<div class="text-gray-600 font-semibold">📍 ${inter.kilometrage} km</div>` : ''}
+                                            ${inter.mecanicien ? `<div class="text-gray-600">👤 ${inter.mecanicien}</div>` : ''}
+                                        </div>
+                                    </div>
+                                    `).join('')}
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Formulaire d'ajout d'intervention
+                const today = new Date().toISOString().split('T')[0];
+                
+                app.innerHTML = `
+                    <div class="min-h-screen">
+                        <div class="bg-blue-600 text-white p-4 shadow-lg">
+                            <h1 class="text-xl font-bold">${vehicle.immatriculation}</h1>
+                            <p class="text-blue-100">➕ Nouvelle Intervention</p>
+                        </div>
+
+                        <div class="p-4">
+                            <div class="bg-white rounded-lg shadow p-4">
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-1">📅 Date *</label>
+                                        <input type="date" id="interventionDate" value="${today}" class="w-full px-3 py-2 border rounded">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-1">🔧 Type de travaux *</label>
+                                        <select id="interventionType" class="w-full px-3 py-2 border rounded text-base">
+                                            <option value="">Sélectionner...</option>
+                                            <option value="Vidange">Vidange</option>
+                                            <option value="Freins">Freins</option>
+                                            <option value="Pneus">Pneus</option>
+                                            <option value="Distribution">Distribution</option>
+                                            <option value="Embrayage">Embrayage</option>
+                                            <option value="Révision">Révision</option>
+                                            <option value="Climatisation">Climatisation</option>
+                                            <option value="Diagnostic">Diagnostic</option>
+                                            <option value="Carrosserie">Carrosserie</option>
+                                            <option value="Électrique">Électrique</option>
+                                            <option value="Suspension">Suspension</option>
+                                            <option value="Échappement">Échappement</option>
+                                            <option value="Autre">Autre</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-1">📝 Description *</label>
+                                        <textarea id="interventionDesc" rows="3" placeholder="Détails de l'intervention..." class="w-full px-3 py-2 border rounded"></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-1">🔩 Pièces changées</label>
+                                        <input type="text" id="interventionPieces" placeholder="Ex: Plaquettes avant, disques..." class="w-full px-3 py-2 border rounded">
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-sm font-semibold mb-1">💰 Coût (€)</label>
+                                            <input type="number" id="interventionCout" step="0.01" placeholder="0.00" class="w-full px-3 py-2 border rounded">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold mb-1">📍 Kilométrage</label>
+                                            <input type="number" id="interventionKm" value="${vehicle.kilometrage || ''}" placeholder="km" class="w-full px-3 py-2 border rounded">
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-1">👤 Mécanicien</label>
+                                        <input type="text" id="interventionMecanicien" placeholder="Nom du mécanicien" class="w-full px-3 py-2 border rounded">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-1">💬 Commentaires / Observations</label>
+                                        <textarea id="interventionCommentaire" rows="3" placeholder="Observations, recommandations, prochaines interventions..." class="w-full px-3 py-2 border rounded"></textarea>
+                                    </div>
+
+                                    <div class="flex gap-2 pt-2">
+                                        <button onclick="addIntervention()" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700">
+                                            ✅ Enregistrer
+                                        </button>
+                                        <button onclick="showAddForm=false; render();" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400">
+                                            ❌ Annuler
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Démarrer l'application
+        loadData();
+    </script>
+</body>
+</html>
