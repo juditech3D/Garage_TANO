@@ -8,22 +8,52 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
-    <style>
+   <style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: url('Background.png') no-repeat center center fixed;
+        background-size: cover;
+        background-attachment: fixed;
+        background-position: center top;
+        color: white;
+        margin: 0;
+        min-height: 100vh;
+    }
+
+    /* Couche assombrissante pour la lisibilité */
+    body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(2px);
+        z-index: -1;
+    }
+
+    /* Conteneur principal */
+    #app {
+        background: rgba(0, 0, 0, 0.4);
+        min-height: 100vh;
+        padding-bottom: 50px;
+    }
+
+    /* ✅ Adaptation mobile */
+    @media (max-width: 768px) {
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: url('Background.png') no-repeat center center fixed;
-            background-size: cover;
-            backdrop-filter: blur(4px);
-            color: white;
+            background-size: contain;  /* affiche toute l’image sans la couper */
+            background-color: #000;    /* fond neutre autour de l’image */
         }
 
-        /* Optionnel : ajouter une couche semi-transparente pour mieux lire le texte */
         #app {
-            background: rgba(0, 0, 0, 0.5);
-            min-height: 100vh;
-            padding-bottom: 50px;
+            background: rgba(0, 0, 0, 0.6);
         }
-    </style>
+    }
+</style>
+
 
 </head>
 
